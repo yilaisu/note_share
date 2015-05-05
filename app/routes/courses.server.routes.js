@@ -16,10 +16,7 @@ module.exports = function(app) {
         .post(courses.create);
 
     app.route('/courses/code')
-        .get(users.requiresLogin, courses.listByCode)
-
-    app.route('/courses/:courseId')
-        .get(users.requiresLogin, courses.hasAuthorization, courses.read);
+        .get(users.requiresLogin, courses.listByCode);
 
     app.route('/courses/user')
         .get(users.requiresLogin, courses.getUserCourses);
@@ -28,9 +25,12 @@ module.exports = function(app) {
         .post(users.requiresLogin, courses.hasAuthorization, courses.addToUser)
         .delete(users.requiresLogin, courses.hasAuthorization, courses.removeFromUser);
 
+    app.route('/courses/:courseId')
+        .get(users.requiresLogin, courses.hasAuthorization, courses.read);
+
     app.route('/courses/update/:schoolId')
         .get(uoftapi.addCourses);
 
-    app.param('courseId', courses.findById);
+    app.param('courseId', courses.courseById);
     app.param('schoolId', schools.schoolById);
 };

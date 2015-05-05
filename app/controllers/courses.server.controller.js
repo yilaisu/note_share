@@ -157,7 +157,7 @@ exports.hasAuthorization = function(req, res, next) {
  * Middleware to find the course by ID. Packs the course object into req.course
  *
  */
-exports.findById = function(req, res, next, id) {
+exports.courseById = function(req, res, next, id) {
     Course.findById(id).exec(function(err, course) {
         if (err) return next(err);
         if (!course) return next(new Error('Failed to load course ' + id));
@@ -165,15 +165,6 @@ exports.findById = function(req, res, next, id) {
         next();
     });
 };
-
-exports.findCourseById = function(req , id) {
-    Course.findById(id).exec(function(err, course) {
-        if (err) return next(err);
-        if (!course) return next(new Error('Failed to load course ' + id));
-        req.course = course;
-    });
-};
-
 
 
 /**
@@ -186,7 +177,6 @@ exports.addCourse = function(course, school, res, callback){
     var courseToAdd = new Course({
         name: course.name,
         code: course.code,
-        term: course.term,
         school: school._id
     });
 

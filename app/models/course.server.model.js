@@ -17,18 +17,18 @@ var CourseSchema = new Schema({
         trim: true,
         required: 'Course code cannot be blank'
     },
-    term:{
-        type: String,
-        trim: true,
-        default: ''
-    },
     description: {
         type: String
     },
     school: {
         type: Schema.ObjectId,
         ref: 'School'
-    }
+    },
+    sections: [{
+        type: Schema.ObjectId,
+        ref: 'Section'
+    }]
+
 });
 
 CourseSchema.index({code: 1, school: 1}, {unique: true});

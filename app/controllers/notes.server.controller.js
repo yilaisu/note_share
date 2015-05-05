@@ -11,6 +11,7 @@ var _ = require('lodash'),
     courses = require('../../app/controllers/courses.server.controller'),
     Course = mongoose.model('Course'),
     School = mongoose.model('School'),
+    Section = mongoose.model('Section'),
     Note = mongoose.model('Note');
 
 /**
@@ -97,76 +98,87 @@ exports.read = function(req, res) {
  * Notes will then be placed in a file path format of:  ./uploads/"school name"/"course code"/"image name"
  *
  *  req NEEDS TO CONTAIN:   file: xxxxxx.xxx <- the actual image
-                            name: xxxxx
- *                          courseId: xxxxx
- *                          section: xxxxx
+                            type: lecture/tutorial/homework
+                            number: 1 (ex: lecture 1/ tutorial 1 / homework)
+ *                          sectionId: xxxxx
+ *
  */
 exports.create = function(req, res) {
     var note = new Note(req.body);
     note.author = req.user;
-    note.courseId = mongoose.Types.ObjectId(req.body.courseId);
+    note.sectionId = mongoose.Types.ObjectId(req.body.sectionId);
 
-    Course.findById(req.body.courseId).exec(function(err, course) {
-            if (err) return res.status(400).send();
-            if (!course) return res.status(400).send({
-                message: 'not course'
-            });
+    Section.findById(req.body.sectionId).exec(function(err, section) {
+        if (err) return res.status(400).send();
+        if (!section) return res.status(400).send({
+            message: 'section not found'
+        });
 
-            School.findById(course.school).exec(function(err, school) {
-                    if (err) return res.status(400).send();
-                    if (!school) return res.status(400).send({
-                        message: 'not school'
-                    });
+            Course.findById(section.course).exec(function(err, course) {
+                if (err) return res.status(400).send();
+                if (!course) return res.status(400).send({
+                    message: 'course not found'
+                });
 
-                    gm("11bf23a97b389054c4b7424b615c49fa.jpg").res(function(err, value){
-                            console.log('resolution: ' + value);
-                            console.log(value);
-                            console.log(err);
-                    })
-
-                    console.log(req.files);
-
-                    // check if the extension is correct
-                    var matched = matchExtension(req.files.file.extension);
-                    if ( matched == false ){
-                        return res.status(400).send({
-                            message: 'image type is not accepted'
+                School.findById(course.school).exec(function(err, school) {
+                        if (err) return res.status(400).send();
+                        if (!school) return res.status(400).send({
+                            message: 'school not found'
                         });
-                    }
 
-                    var fileName = req.files.file.name;
-                    var schoolName = school.name.replace(/\W/g, '');
-                    var courseCode = course.code.replace(/\W/g, '');
-                    var filePath = getPath('./uploads/' , schoolName, courseCode , fileName);
+                        /*gm("11bf23a97b389054c4b7424b615c49fa.jpg").res(function(err, value){
+                                console.log('resolution: ' + value);
+                                console.log(value);
+                                console.log(err);
+                        })*/
 
-                    // move file from temporary location to file organized by schoolName/courseCode
-                    // Image resize is also called from within moveFile
-                    moveFile( req.files.file, filePath, res);
+                        console.log(req.files);
 
-                    // create new instance of Note
-                    var uploadedNote = new Note({
-                            name: req.body.name,
-                            location: filePath,
-                            course: req.body.courseId,
-                            section: req.body.section,
-                            author: req.user._id
-                    });
-
-                    // save note into mongoose
-                    uploadedNote.save(function(err) {
-                        if (err) {
-                        	return res.status(400).send({
-                        		message: errorHandler.getErrorMessage(err)
-                          	});
-                        } else {
-                        	return res.json(uploadedNote);
+                        // check if the extension is correct
+                        var matched = matchExtension(req.files.file.extension);
+                        if ( matched == false ){
+                            return res.status(400).send({
+                                message: 'image type is not accepted'
+                            });
                         }
-                    });
+
+                        var fileName = req.files.file.name;
+                        var schoolName = school.name.replace(/\W/g, '');
+                        var courseCode = course.code.replace(/\W/g, '');
+                        var filePath = getFilePath('./uploads/' , schoolName, courseCode , section, fileName);
+                        //var thumbNailPath = getThumbNailPath(filePath);
+
+                        // move file from temporary location to file organized by schoolName/courseCode
+                        // Image resize
+                        moveFile_Resize_Thumbnail( req.files.file, filePath, res);
+
+                        // create new instance of Note
+                        var uploadedNote = new Note({
+                                name: req.body.name,
+                                noteType: req.body.noteType,
+                                fileType: req.body.fileType,
+                                location: filePath,
+                                thumbNail: filePath,
+                                author: req.user._id,
+                                section: req.body.sectionId,
+                        });
+
+                        // save note into mongoose
+                        uploadedNote.save(function(err) {
+                            if (err) {
+                                return res.status(400).send({
+                                    message: errorHandler.getErrorMessage(err)
+                                });
+                            } else {
+                                return res.json(uploadedNote);
+                            }
+                        });
+                });
             });
     });
 };
 
-function moveFile( file, filePath, res ){
+function moveFile_Resize_Thumbnail( file, filePath, res ){
 
     var defaultPath = file.path;
     fs.rename(defaultPath, filePath, function(err){
@@ -180,10 +192,13 @@ function moveFile( file, filePath, res ){
  *   prefix by default will be './uploads/'
  *   Create schoolName folder and courseCode folder if they don't already exist
  */
-function getPath( prefix, schoolName, courseCode, fileName){
+function getFilePath( prefix, schoolName, courseCode, section, fileName){
 
     var schoolPath = prefix + schoolName;
     var coursePath = schoolPath + '/' + courseCode;
+    var sectionYear = coursePath + '/' + section.year;
+    var sectionTerm = sectionYear + '/' + section.term;
+    var sectionFullPath = sectionTerm + '/' + section.section;
 
     if (!fs.existsSync(schoolPath)){
         fs.mkdirSync(schoolPath);
@@ -191,11 +206,24 @@ function getPath( prefix, schoolName, courseCode, fileName){
     if (!fs.existsSync(coursePath)){
         fs.mkdirSync(coursePath);
     }
+    if (!fs.existsSync(sectionYear)){
+        fs.mkdirSync(sectionYear);
+    }
+    if (!fs.existsSync(sectionTerm)){
+        fs.mkdirSync(sectionTerm);
+    }
+    if (!fs.existsSync(sectionFullPath)){
+        fs.mkdirSync(sectionFullPath);
+    }
 
-    var filePath = coursePath + '/' + fileName;
+    var filePath = sectionFullPath + '/' + fileName;
     return filePath;
 };
 
+/*function getThumbNailPath(filePath){
+
+
+};*/
 /*
  *  These are the accepted image extensions
  */
@@ -210,7 +238,7 @@ function matchExtension(extension){
 
 function resizeNote(file, filePath){
 
-    console.log(filePath);
+    /*console.log(filePath);
     gm("./uploads/UniversityofToronto/APS105/99f04d1f241de4e7d2011868075977d9.jpg")
     .resize(240, 240)
     .noProfile()
@@ -222,8 +250,20 @@ function resizeNote(file, filePath){
     .size(function (err, size) {
       if (!err)
         console.log(size.width > size.height ? 'wider' : 'taller than you');
+    });*/
+
+    gm(filePath)
+    .resize(360, 240)
+    .noProfile()
+    .write(filePath, function (err) {
+        if (!err) console.log('done');
     });
 
+    gm(filePath)
+    .size(function (err, size) {
+      if (!err)
+        console.log(size.width > size.height ? 'wider' : 'taller than you');
+    });
 
 }
 

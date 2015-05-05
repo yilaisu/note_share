@@ -10,7 +10,30 @@ var NoteSchema = new Schema({
     name: {
         type: String,
         trim: true,
-        required: 'Name cannot be blank'
+        required: 'number cannot cannot be blank'
+    },
+    noteType:{
+        type: [{
+			type: String,
+			enum: ['Lecture', 'Tutorial', 'HomeWork', 'Exam', 'Other']
+		}],
+		required: 'note type cannot be blank'
+    },
+    fileType: {
+        type: [{
+			type: String,
+			enum: ['Image', 'Doc']
+		}],
+        required: 'file type cannot be blank'
+    },
+    number: {
+        type: String
+    },
+    date:{
+        type: Date
+    },
+    rating: {
+        type: String
     },
     location: {
         type: String,
@@ -18,15 +41,11 @@ var NoteSchema = new Schema({
         required: 'File location cannot be blank',
         unique: true
     },
-    course: {
-        type: Schema.ObjectId,
-        ref: 'Course',
-        required: 'Course cannot be blank'
-    },
-    section: {
+    thumbNail: {
         type: String,
         trim: true,
-        required: 'Section cannot be blank'
+        required: 'Thumb Nail location cannot be blank',
+        unique: true
     },
     tags: [{
         type: String,
@@ -35,6 +54,11 @@ var NoteSchema = new Schema({
     author: {
         type: Schema.ObjectId,
         ref: 'User'
+    },
+    section: {
+        type: Schema.ObjectId,
+        ref: 'Section',
+        required: 'Section cannot be blank'
     }
 });
 
